@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "azure-rvtools"
+version = "1.0.0"
+description = "Convert RVTools Excel exports into an Azure IaaS cost estimate."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.0",
+    "openpyxl>=3.1",
+    "tabulate>=0.9",
+]
+keywords = ["azure", "rvtools", "vmware", "cloud", "cost", "estimator"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+Homepage = "https://github.com/KimTholstorf/azure-rvtools-cost-estimator"
+Repository = "https://github.com/KimTholstorf/azure-rvtools-cost-estimator"
+
+[project.scripts]
+azure-rvtools = "azure_rvtools:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["azure_rvtools*"]
