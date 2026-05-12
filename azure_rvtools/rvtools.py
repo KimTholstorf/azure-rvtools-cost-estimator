@@ -246,6 +246,8 @@ def _parse_vinfo(
         # Memory in MB → GB
         try:
             ram_gb = float(str(row[mem_col])) / 1024.0
+            if ram_gb != ram_gb:  # NaN check
+                ram_gb = 0.0
         except (ValueError, TypeError):
             ram_gb = 0.0
 

@@ -13,7 +13,7 @@ from openpyxl.utils import get_column_letter
 if TYPE_CHECKING:
     from .output import ReservationRec, VMResult
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 # ---------------------------------------------------------------------------
 # Azure Support Plan pricing (monthly USD, fixed — not region-specific)
@@ -105,14 +105,15 @@ def _style(cell, font=None, fill=None, align=None, number_format=None):
 
 def _vm_description(sku_name: str, vcpus: int, ram_gb: int, os_type: str,
                     count: int, pricing_mode: str, reserved_term: str = "3-year",
-                    hybrid_benefit: bool = False) -> str:
+                    hybrid_benefit: bool = False,
+                    is_reserved: bool = False) -> str:
     if hybrid_benefit:
         os_label = "Linux (Azure Hybrid Benefit)"
     elif os_type == "windows":
         os_label = "Windows (License included)"
     else:
         os_label = "Linux"
-    if pricing_mode in ("all-reserved", "optimized"):
+    if pricing_mode == "all-reserved" or (pricing_mode == "realistic" and is_reserved):
         years = "3 year" if reserved_term == "3-year" else "1 year"
         term = f"({years} reserved)"
     else:
@@ -158,6 +159,7 @@ def _build_estimate_sheet(
     reserved_term: str = "3-year",
     hybrid_benefit: bool = False,
     support_plan: str = "basic",
+    realistic_top_skus: frozenset[str] = frozenset(),
 ) -> None:
     ws = wb.active
     ws.title = "Estimate"
@@ -232,7 +234,12 @@ def _build_estimate_sheet(
         sku = group[0].sku
         count = len(group)
 
-        if pricing_mode in ("all-reserved", "optimized"):
+        is_reserved = (
+            pricing_mode == "all-reserved"
+            or (pricing_mode == "realistic" and sku_name in realistic_top_skus)
+        )
+
+        if is_reserved:
             monthly = sum(
                 r.reserved_compute_monthly for r in group
                 if r.reserved_compute_monthly is not None
@@ -243,6 +250,7 @@ def _build_estimate_sheet(
         desc = _vm_description(
             sku_name, sku.vcpus, sku.ram_gb, os_type, count, pricing_mode,
             reserved_term=reserved_term, hybrid_benefit=hybrid_benefit,
+            is_reserved=is_reserved,
         )
 
         ws.row_dimensions[current_row].height = 48
@@ -359,8 +367,11 @@ def _build_estimate_sheet(
     current_row += 1
 
     # --- Generation line ---
-    if pricing_mode in ("all-reserved", "optimized"):
+    if pricing_mode == "all-reserved":
         pricing_label = ("3-Year Reserved" if reserved_term == "3-year" else "1-Year Reserved")
+    elif pricing_mode == "realistic":
+        rsv_label = "3-Year Reserved" if reserved_term == "3-year" else "1-Year Reserved"
+        pricing_label = f"Realistic (top {len(realistic_top_skus)} SKUs at {rsv_label}, rest PAYG)"
     else:
         pricing_label = "Pay as you go"
     ahb_note = " Azure Hybrid Benefit applied." if hybrid_benefit else ""
@@ -401,7 +412,7 @@ def _build_vm_detail_sheet(
     for i, w in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
-    show_reserved = pricing_mode in ("all-reserved", "optimized")
+    show_reserved = pricing_mode in ("all-reserved", "realistic")
 
     headers = ["VM Name", "vCPUs", "RAM (GB)", "Azure SKU", "OS",
                "Disks", "PAYG/mo (USD)"]
@@ -565,6 +576,7 @@ def _build_summary_sheet(
     currency: str,
     reserved_term: str = "3-year",
     hybrid_benefit: bool = False,
+    realistic_top_skus: frozenset[str] = frozenset(),
 ) -> None:
     ws = wb.create_sheet("Summary")
     ws.column_dimensions["A"].width = 36
@@ -581,19 +593,27 @@ def _build_summary_sheet(
     total_payg_comp = sum(r.payg_compute_monthly for r in powered_on)
     total_payg      = total_payg_comp + total_disk_mo
 
-    rsv_eligible = [r for r in powered_on
-                    if r.sku and r.reserved_compute_monthly is not None]
-    total_rsv_comp = sum(r.reserved_compute_monthly for r in rsv_eligible)  # type: ignore[misc]
-    total_rsv       = total_rsv_comp + total_disk_mo
+    if pricing_mode == "realistic":
+        total_rsv_comp = sum(
+            (r.reserved_compute_monthly
+             if r.sku and r.sku.name in realistic_top_skus and r.reserved_compute_monthly is not None
+             else r.payg_compute_monthly)
+            for r in powered_on if r.sku is not None
+        )
+    else:
+        rsv_eligible = [r for r in powered_on
+                        if r.sku and r.reserved_compute_monthly is not None]
+        total_rsv_comp = sum(r.reserved_compute_monthly for r in rsv_eligible)  # type: ignore[misc]
+    total_rsv = total_rsv_comp + total_disk_mo
 
-    show_reserved = pricing_mode in ("all-reserved", "optimized")
+    show_reserved = pricing_mode in ("all-reserved", "realistic")
 
     from .output import _rsv_label_long
     rsv_long = _rsv_label_long(reserved_term)
     yrs = "3-yr" if reserved_term == "3-year" else "1-yr"
 
-    if pricing_mode == "optimized":
-        mode_label = f"Optimized ({rsv_long})"
+    if pricing_mode == "realistic":
+        mode_label = f"Realistic (top {len(realistic_top_skus)} SKUs at {rsv_long}, rest PAYG)"
     elif pricing_mode == "all-reserved":
         mode_label = f"All {rsv_long}"
     else:
@@ -687,6 +707,7 @@ def write_workbook(
     reserved_term: str = "3-year",
     hybrid_benefit: bool = False,
     support_plan: str = "basic",
+    realistic_top_skus: frozenset[str] = frozenset(),
 ) -> None:
     """
     Write an Azure Calculator-style Excel workbook to *output_path*.
@@ -703,7 +724,7 @@ def write_workbook(
         wb, results, recommendations, region, currency,
         pricing_mode, disk_type, rvtools_filename,
         reserved_term=reserved_term, hybrid_benefit=hybrid_benefit,
-        support_plan=support_plan,
+        support_plan=support_plan, realistic_top_skus=realistic_top_skus,
     )
     _build_vm_detail_sheet(wb, results, pricing_mode, region, reserved_term=reserved_term)
 
@@ -711,6 +732,7 @@ def write_workbook(
     _build_reservations_sheet(wb, recommendations, total_disk, reserved_term=reserved_term)
 
     _build_summary_sheet(wb, results, pricing_mode, region, disk_type, currency,
-                         reserved_term=reserved_term, hybrid_benefit=hybrid_benefit)
+                         reserved_term=reserved_term, hybrid_benefit=hybrid_benefit,
+                         realistic_top_skus=realistic_top_skus)
 
     wb.save(output_path)

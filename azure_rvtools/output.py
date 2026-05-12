@@ -75,6 +75,9 @@ def format_disk_summary(tiers: list[tuple[str, int]]) -> str:
 
 def _fmt_ram(ram_gb: float) -> str:
     """Format RAM as integer if whole number, else 1 decimal."""
+    import math
+    if math.isnan(ram_gb) or math.isinf(ram_gb):
+        return "0"
     if ram_gb == int(ram_gb):
         return str(int(ram_gb))
     return f"{ram_gb:.1f}"
@@ -210,10 +213,11 @@ def print_summary(
     reserved_term: str = "3-year",
     hybrid_benefit: bool = False,
     support_plan: str = "basic",
+    realistic_top_skus: frozenset[str] = frozenset(),
     stream=sys.stdout,
 ) -> None:
     """Print a summary block after the VM table."""
-    show_reserved = pricing_mode in ("all-reserved", "optimized")
+    show_reserved = pricing_mode in ("all-reserved", "realistic")
 
     powered_on = [r for r in results if r.vm.is_powered_on]
     powered_off = [r for r in results if not r.vm.is_powered_on]
@@ -252,17 +256,30 @@ def print_summary(
     print(f"    Disk:                ${total_disk_monthly:>12,.2f}", file=stream)
 
     if show_reserved:
-        # Only VMs that have both a SKU and a reservation price
-        rsv_eligible = [
-            r for r in powered_on
-            if r.sku is not None and r.reserved_compute_monthly is not None
-        ]
-        total_rsv_compute = sum(r.reserved_compute_monthly for r in rsv_eligible)  # type: ignore[arg-type]
+        if pricing_mode == "realistic":
+            # Top SKUs use reserved pricing, rest use PAYG
+            effective_compute = sum(
+                (r.reserved_compute_monthly
+                 if r.sku and r.sku.name in realistic_top_skus and r.reserved_compute_monthly is not None
+                 else r.payg_compute_monthly)
+                for r in powered_on if r.sku is not None
+            )
+            total_rsv_compute = effective_compute
+            mode_label = f"Realistic ({rsv_long})"
+        else:
+            # All reserved
+            rsv_eligible = [
+                r for r in powered_on
+                if r.sku is not None and r.reserved_compute_monthly is not None
+            ]
+            total_rsv_compute = sum(r.reserved_compute_monthly for r in rsv_eligible)  # type: ignore[arg-type]
+            mode_label = rsv_long
+
         total_rsv = total_rsv_compute + total_disk_monthly
 
         print(file=stream)
-        print(f"  Total {rsv_long}/mo:".ljust(26) + f"${total_rsv:>12,.2f}", file=stream)
-        print(f"    Compute (reserved):  ${total_rsv_compute:>12,.2f}", file=stream)
+        print(f"  Total {mode_label}/mo:".ljust(26) + f"${total_rsv:>12,.2f}", file=stream)
+        print(f"    Compute (effective): ${total_rsv_compute:>12,.2f}", file=stream)
         print(f"    Disk (unchanged):    ${total_disk_monthly:>12,.2f}", file=stream)
 
         if total_payg_compute > 0:

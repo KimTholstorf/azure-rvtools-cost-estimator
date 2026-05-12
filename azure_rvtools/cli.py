@@ -17,7 +17,7 @@ from .pricing import PricingClient
 from .rvtools import VMRecord, filter_vms, list_topology, parse_rvtools
 from .sku_mapper import ALL_VM_SKUS, find_disk_tier, find_vm_sku
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 
 # ---------------------------------------------------------------------------
@@ -45,9 +45,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     parser.add_argument(
         "--pricing",
-        choices=["optimized", "all-payg", "all-reserved"],
-        default="optimized",
-        help="Pricing mode (default: optimized)",
+        choices=["realistic", "all-payg", "all-reserved"],
+        default="realistic",
+        help="Pricing mode (default: realistic)",
+    )
+    parser.add_argument(
+        "--realistic-top",
+        type=int,
+        default=3,
+        metavar="N",
+        dest="realistic_top",
+        help=(
+            "Number of top SKUs by VM count to price as reserved in realistic mode (default: 3). "
+            "All other SKUs are priced as PAYG."
+        ),
     )
     parser.add_argument(
         "--disk-type",
@@ -296,10 +307,21 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
 
-        # --- Build recommendations ---
-        recommendations: list[ReservationRec] = []
-        if args.pricing == "optimized":
-            recommendations = build_recommendations(results)
+        # --- Build recommendations (always — Reservations sheet is always populated) ---
+        recommendations: list[ReservationRec] = build_recommendations(results)
+
+        # --- Realistic mode: identify top N SKUs by VM count to price as reserved ---
+        realistic_top_skus: frozenset[str] = frozenset()
+        if args.pricing == "realistic" and recommendations:
+            sorted_by_count = sorted(recommendations, key=lambda r: r.vm_count, reverse=True)
+            realistic_top_skus = frozenset(
+                r.sku_name for r in sorted_by_count[:args.realistic_top]
+            )
+            print(
+                f"[INFO] Realistic mode: reserving top {args.realistic_top} SKU(s) by VM count: "
+                f"{', '.join(sorted(realistic_top_skus))}",
+                file=sys.stderr,
+            )
 
         # --- Output ---
         total_disk_monthly = sum(r.disk_monthly for r in results if r.vm.is_powered_on)
@@ -314,9 +336,10 @@ def main(argv: list[str] | None = None) -> int:
             reserved_term=args.reserved_term,
             hybrid_benefit=not args.os_license_included,
             support_plan=args.support,
+            realistic_top_skus=realistic_top_skus,
         )
 
-        if args.pricing == "optimized" and recommendations:
+        if args.pricing == "realistic" and recommendations:
             print("")
             print_recommendations(recommendations, args.currency, total_disk_monthly,
                                   args.reserved_term)
@@ -335,6 +358,7 @@ def main(argv: list[str] | None = None) -> int:
             reserved_term=args.reserved_term,
             hybrid_benefit=not args.os_license_included,
             support_plan=args.support,
+            realistic_top_skus=realistic_top_skus,
         )
         print(f"[INFO] Workbook saved: {args.output}", file=sys.stderr)
 
