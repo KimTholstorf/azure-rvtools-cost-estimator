@@ -1,5 +1,5 @@
 <div align="center">
-  <h2>azure-rvtools-cost-estimator</h2>
+  <img src="images/logo_gh.png" width="345" height="93" alt="Logo"/>
   <h4 align="center">Turn VMware RVTools exports into an Azure IaaS monthly cost estimate</h4>
 </div>
 
