@@ -17,7 +17,7 @@ from .pricing import PricingClient
 from .rvtools import VMRecord, filter_vms, list_topology, parse_rvtools
 from .sku_mapper import ALL_VM_SKUS, find_disk_tier, find_vm_sku
 
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 
 # ---------------------------------------------------------------------------
@@ -65,6 +65,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         choices=["premium-ssd", "standard-ssd", "standard-hdd"],
         default="premium-ssd",
         help="Managed disk type (default: premium-ssd)",
+    )
+    parser.add_argument(
+        "--disk-source",
+        choices=["provisioned", "in-use"],
+        default="provisioned",
+        dest="disk_source",
+        help="Disk capacity source for managed disk pricing: provisioned (default) or in-use",
     )
     parser.add_argument(
         "--include-powered-off",
@@ -266,7 +273,8 @@ def main(argv: list[str] | None = None) -> int:
             disk_tier_counts: dict[str, int] = {}
             disk_monthly = 0.0
 
-            for disk in vm.effective_disks:
+            disk_records = vm.in_use_disks if args.disk_source == "in-use" else vm.effective_disks
+            for disk in disk_records:
                 tier = find_disk_tier(disk.capacity_gb, args.disk_type)
                 if tier is not None:
                     disk_tier_counts[tier.tier] = disk_tier_counts.get(tier.tier, 0) + 1
@@ -333,6 +341,7 @@ def main(argv: list[str] | None = None) -> int:
             currency=args.currency,
             region=args.region,
             disk_type=args.disk_type,
+            disk_source=args.disk_source,
             reserved_term=args.reserved_term,
             hybrid_benefit=not args.os_license_included,
             support_plan=args.support,
@@ -354,6 +363,7 @@ def main(argv: list[str] | None = None) -> int:
             currency=args.currency,
             pricing_mode=args.pricing,
             disk_type=args.disk_type,
+            disk_source=args.disk_source,
             rvtools_filename=Path(args.rvtools).name,
             reserved_term=args.reserved_term,
             hybrid_benefit=not args.os_license_included,

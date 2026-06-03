@@ -114,6 +114,7 @@ class VMRecord:
     cluster: str = ""
     disks: list[DiskRecord] = field(default_factory=list)
     provisioned_gb: float = 0.0
+    in_use_gb: float = 0.0
 
     @property
     def is_powered_on(self) -> bool:
@@ -130,6 +131,16 @@ class VMRecord:
         if self.provisioned_gb > 0:
             return [DiskRecord(self.provisioned_gb)]
         return []
+
+    @property
+    def in_use_disks(self) -> list[DiskRecord]:
+        """
+        Return a single aggregate disk record based on the vInfo In Use MiB column.
+        Falls back to effective_disks if in_use_gb is not available.
+        """
+        if self.in_use_gb > 0:
+            return [DiskRecord(self.in_use_gb)]
+        return self.effective_disks
 
 
 # ---------------------------------------------------------------------------
@@ -217,6 +228,7 @@ def _parse_vinfo(
 
     # Optional disk columns — prefer total capacity over provisioned
     prov_col = resolved.get("Total disk capacity MiB") or resolved.get("Provisioned MiB")
+    in_use_col = resolved.get("In Use MiB")
 
     records: list[VMRecord] = []
 
@@ -283,6 +295,14 @@ def _parse_vinfo(
             except (ValueError, TypeError):
                 provisioned_gb = 0.0
 
+        # In Use disk in MiB → GB
+        in_use_gb = 0.0
+        if in_use_col and pd.notna(row.get(in_use_col)):
+            try:
+                in_use_gb = float(str(row[in_use_col])) / 1024.0
+            except (ValueError, TypeError):
+                in_use_gb = 0.0
+
         # Per-disk records from vDisk sheet
         disks = vdisk_map.get(vm_name, [])
 
@@ -298,6 +318,7 @@ def _parse_vinfo(
                 cluster=cluster,
                 disks=disks,
                 provisioned_gb=provisioned_gb,
+                in_use_gb=in_use_gb,
             )
         )
 

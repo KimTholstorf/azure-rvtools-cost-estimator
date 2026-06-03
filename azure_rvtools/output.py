@@ -210,6 +210,7 @@ def print_summary(
     currency: str,
     region: str,
     disk_type: str,
+    disk_source: str = "provisioned",
     reserved_term: str = "3-year",
     hybrid_benefit: bool = False,
     support_plan: str = "basic",
@@ -248,7 +249,8 @@ def print_summary(
     print(f"  VMs:       {vm_count_str}", file=stream)
     print(f"  vCPUs:     {total_vcpus:,}", file=stream)
     print(f"  RAM:       {_fmt_ram(total_ram_gb)} GB", file=stream)
-    print(f"  Disks:     {total_disk_count:,} ({disk_type})", file=stream)
+    disk_source_label = "in-use capacity" if disk_source == "in-use" else "provisioned capacity"
+    print(f"  Disks:     {total_disk_count:,} ({disk_type}, {disk_source_label})", file=stream)
     print(file=stream)
 
     print(f"  Total PAYG/mo:         ${total_payg:>12,.2f}", file=stream)

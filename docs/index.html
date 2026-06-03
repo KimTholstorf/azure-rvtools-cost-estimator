@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Azure RVTools Cost Estimator</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0078D4">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f7fa;
+      color: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #0078D4;
+      color: white;
+      padding: 1.25rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    header h1 { font-size: 1.3rem; font-weight: 600; }
+    header p  { font-size: 0.85rem; opacity: 0.85; margin-top: 0.15rem; }
+
+    main {
+      max-width: 720px;
+      width: 100%;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+      flex: 1;
+    }
+
+    .card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      padding: 1.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .card h2 {
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+      color: #0078D4;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 0.8rem;
+    }
+
+    /* Drop zone */
+    #dropzone {
+      border: 2px dashed #ccd;
+      border-radius: 8px;
+      padding: 2.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    #dropzone.dragover { border-color: #0078D4; background: #EFF6FC; }
+    #dropzone.has-file  { border-color: #28a745; background: #f0fff4; }
+    #dropzone svg { width: 40px; height: 40px; margin-bottom: 0.75rem; opacity: 0.4; }
+    #dropzone p  { color: #666; font-size: 0.9rem; }
+    #dropzone .filename { font-weight: 600; color: #28a745; margin-top: 0.4rem; font-size: 0.95rem; }
+    #file-input { display: none; }
+
+    /* Options grid */
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .field label {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 0.35rem;
+    }
+    .info-link {
+      display: inline-flex;
+      align-items: center;
+      color: #aaa;
+      transition: color 0.15s;
+      line-height: 1;
+    }
+    .info-link:hover { color: #0078D4; }
+    .info-link svg { width: 14px; height: 14px; }
+    .field input, .field select {
+      width: 100%;
+      padding: 0.5rem 0.65rem;
+      border: 1px solid #dde;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      color: #1a1a2e;
+      background: #fafafa;
+    }
+    .field input:focus, .field select:focus {
+      outline: none;
+      border-color: #0078D4;
+    }
+    .field.full { grid-column: 1 / -1; }
+    .field.hidden { display: none; }
+
+    /* Toggle checkboxes */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.88rem;
+      color: #444;
+      margin-top: 0.5rem;
+    }
+    .toggle-row input[type=checkbox] { width: 16px; height: 16px; accent-color: #0078D4; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1.5rem;
+      border-radius: 7px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary  { background: #0078D4; color: white; }
+    .btn-primary:hover:not(:disabled)  { opacity: 0.9; }
+    .btn-success  { background: #28a745; color: white; }
+    .btn-success:hover:not(:disabled)  { opacity: 0.9; }
+
+    /* Status / progress */
+    #status-area { display: none; }
+    .status-msg {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.9rem 1rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+    .status-msg.loading { background: #fff8e1; color: #856404; }
+    .status-msg.success { background: #d4edda; color: #155724; }
+    .status-msg.error   { background: #f8d7da; color: #721c24; }
+
+    .spinner {
+      width: 20px; height: 20px;
+      border: 3px solid #e0c060;
+      border-top-color: #856404;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Filter step */
+    .filter-placeholder {
+      font-size: 0.87rem;
+      color: #999;
+      font-style: italic;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .filter-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.85rem;
+    }
+    .btn-link {
+      background: none;
+      border: none;
+      color: #0078D4;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0;
+    }
+    .btn-link:hover { text-decoration: underline; }
+    .dc-group { margin-bottom: 0.85rem; }
+    .dc-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #555;
+      padding: 0.25rem 0;
+    }
+    .dc-header input[type=checkbox] { width: 15px; height: 15px; accent-color: #0078D4; flex-shrink: 0; }
+    .cluster-list {
+      margin-left: 1.6rem;
+      margin-top: 0.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .cluster-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.82rem;
+      color: #555;
+    }
+    .cluster-item input[type=checkbox] { width: 14px; height: 14px; accent-color: #0078D4; flex-shrink: 0; }
+    .filter-scroll {
+      max-height: 260px;
+      overflow-y: auto;
+      padding-right: 0.25rem;
+      border: 1px solid #eee;
+      border-radius: 6px;
+      padding: 0.75rem;
+    }
+    .mini-spinner {
+      width: 13px; height: 13px;
+      border: 2px solid #ddd;
+      border-top-color: #999;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    /* Prices info */
+    .prices-note {
+      font-size: 0.78rem;
+      color: #888;
+      margin-top: 1rem;
+    }
+    .prices-note a { color: #0078D4; }
+    .prices-loading { color: #0078D4; display: inline-flex; align-items: center; gap: 0.4rem; }
+
+    footer {
+      text-align: center;
+      font-size: 0.78rem;
+      color: #aaa;
+      padding: 1.5rem;
+    }
+    footer a { color: #0078D4; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Azure RVTools Cost Estimator</h1>
+    <p>VMware RVTools Export to Azure IaaS monthly cost estimate — 100% browser-local via WebAssembly, nothing is uploaded or leaves your device.</p>
+  </div>
+</header>
+
+<main>
+
+  <!-- Init status (top) — Pyodide initialisation only -->
+  <div id="status-init">
+    <div class="status-msg loading" id="status-init-loading" style="display:none">
+      <div class="spinner"></div>
+      <span id="status-init-text">Initialising Python environment…</span>
+    </div>
+    <div class="status-msg error" id="status-init-error" style="display:none">
+      ❌ <span id="status-init-error-text"></span>
+    </div>
+  </div>
+
+  <!-- Step 1: Upload -->
+  <div class="card">
+    <h2>1 — RVTools Export</h2>
+    <div id="dropzone" onclick="document.getElementById('file-input').click()">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M12 16V4m0 0L8 8m4-4l4 4"/><rect x="2" y="16" width="20" height="6" rx="2"/>
+      </svg>
+      <p>Drag &amp; drop your <strong>RVTools .xlsx</strong> here, or click to browse</p>
+      <p id="file-name" class="filename" style="display:none"></p>
+    </div>
+    <input type="file" id="file-input" accept=".xlsx" />
+  </div>
+
+  <!-- Step 2: Filters (optional) -->
+  <div class="card">
+    <h2>2 — Filters <span style="font-weight:400;color:#aaa;font-size:0.75rem;text-transform:none;letter-spacing:0">optional</span></h2>
+    <div id="filter-placeholder" class="filter-placeholder">Upload a file in step 1 to see available Datacenters and Clusters.</div>
+    <div id="filter-loading" style="display:none" class="filter-placeholder"><span class="mini-spinner"></span> Scanning file…</div>
+    <div id="filter-content" style="display:none">
+      <div class="filter-actions">
+        <button class="btn-link" onclick="setAllFilters(true)">Select all</button>
+        <span style="color:#ddd">|</span>
+        <button class="btn-link" onclick="setAllFilters(false)">Deselect all</button>
+      </div>
+      <div class="filter-scroll">
+        <div id="filter-groups" style="display:grid;grid-template-columns:1fr 1fr;gap:0 1.5rem;"></div>
+      </div>
+      <p class="prices-note" style="margin-top:0.75rem">All selected = no filter applied. Deselect to exclude.</p>
+    </div>
+  </div>
+
+  <!-- Step 3: Options -->
+  <div class="card">
+    <h2>3 — Options</h2>
+    <div class="options-grid">
+
+      <div class="field full">
+        <label for="region">Azure region
+          <a class="info-link" href="https://azure.microsoft.com/en-us/explore/global-infrastructure/geographies/" target="_blank" title="Azure regions">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="17" stroke-width="2.5"/><circle cx="12" cy="7.5" r="1.5" fill="currentColor" stroke="none"/></svg>
+          </a>
+        </label>
+        <select id="region" onchange="onRegionChange()">
+          <option value="">— Select a region —</option>
+          <optgroup label="Europe">
+            <option value="westeurope">West Europe</option>
+            <option value="northeurope">North Europe</option>
+            <option value="uksouth">UK South</option>
+            <option value="ukwest">UK West</option>
+            <option value="francecentral">France Central</option>
+            <option value="francesouth">France South</option>
+            <option value="germanywestcentral">Germany West Central</option>
+            <option value="germanynorth">Germany North</option>
+            <option value="switzerlandnorth">Switzerland North</option>
+            <option value="switzerlandwest">Switzerland West</option>
+            <option value="norwayeast">Norway East</option>
+            <option value="norwaywest">Norway West</option>
+            <option value="swedencentral">Sweden Central</option>
+            <option value="polandcentral">Poland Central</option>
+          </optgroup>
+          <optgroup label="North America">
+            <option value="eastus">East US</option>
+            <option value="eastus2">East US 2</option>
+            <option value="westus">West US</option>
+            <option value="westus2">West US 2</option>
+            <option value="westus3">West US 3</option>
+            <option value="centralus">Central US</option>
+            <option value="southcentralus">South Central US</option>
+            <option value="northcentralus">North Central US</option>
+            <option value="westcentralus">West Central US</option>
+            <option value="canadacentral">Canada Central</option>
+            <option value="canadaeast">Canada East</option>
+          </optgroup>
+          <optgroup label="South America">
+            <option value="brazilsouth">Brazil South</option>
+          </optgroup>
+          <optgroup label="Asia Pacific">
+            <option value="australiaeast">Australia East</option>
+            <option value="australiasoutheast">Australia Southeast</option>
+            <option value="australiacentral">Australia Central</option>
+            <option value="eastasia">East Asia</option>
+            <option value="southeastasia">Southeast Asia</option>
+            <option value="japaneast">Japan East</option>
+            <option value="japanwest">Japan West</option>
+            <option value="koreacentral">Korea Central</option>
+            <option value="koreasouth">Korea South</option>
+            <option value="centralindia">Central India</option>
+            <option value="westindia">West India</option>
+            <option value="southindia">South India</option>
+          </optgroup>
+          <optgroup label="Middle East & Africa">
+            <option value="uaenorth">UAE North</option>
+            <option value="uaecentral">UAE Central</option>
+            <option value="southafricanorth">South Africa North</option>
+            <option value="southafricawest">South Africa West</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="pricing">Pricing mode
+          <a class="info-link" href="https://azure.microsoft.com/en-us/pricing/reserved-vm-instances/" target="_blank" title="Azure Reserved VM Instances">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="17" stroke-width="2.5"/><circle cx="12" cy="7.5" r="1.5" fill="currentColor" stroke="none"/></svg>
+          </a>
+        </label>
+        <select id="pricing" onchange="onPricingChange()">
+          <option value="realistic" selected>Realistic (top SKUs reserved)</option>
+          <option value="all-reserved">All reserved</option>
+          <option value="all-payg">All pay-as-you-go</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="reserved-term">Reservation term</label>
+        <select id="reserved-term">
+          <option value="3-year" selected>3 year</option>
+          <option value="1-year">1 year</option>
+        </select>
+      </div>
+
+      <div class="field" id="field-realistic-top">
+        <label for="realistic-top">Top SKUs to reserve
+          <a class="info-link" href="https://github.com/KimTholstorf/azure-rvtools-cost-estimator#-pricing-modes-explained" target="_blank" title="Top N SKUs by VM count are priced as reserved, rest as PAYG">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="17" stroke-width="2.5"/><circle cx="12" cy="7.5" r="1.5" fill="currentColor" stroke="none"/></svg>
+          </a>
+        </label>
+        <input type="number" id="realistic-top" value="3" min="1" max="20" />
+      </div>
+
+      <div class="field">
+        <label for="disk-type">Managed disk type
+          <a class="info-link" href="https://azure.microsoft.com/en-us/pricing/details/managed-disks/" target="_blank" title="Azure Managed Disks pricing">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="17" stroke-width="2.5"/><circle cx="12" cy="7.5" r="1.5" fill="currentColor" stroke="none"/></svg>
+          </a>
+        </label>
+        <select id="disk-type">
+          <option value="premium-ssd" selected>Premium SSD</option>
+          <option value="standard-ssd">Standard SSD</option>
+          <option value="standard-hdd">Standard HDD</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="disk-source">Disk capacity source
+          <a class="info-link" href="https://github.com/KimTholstorf/azure-rvtools-cost-estimator" target="_blank" title="Provisioned = allocated disk size. In-use = actual used space from vInfo.">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="17" stroke-width="2.5"/><circle cx="12" cy="7.5" r="1.5" fill="currentColor" stroke="none"/></svg>
+          </a>
+        </label>
+        <select id="disk-source">
+          <option value="provisioned" selected>Provisioned capacity</option>
+          <option value="in-use">In-use capacity</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="support">Support plan
+          <a class="info-link" href="https://azure.microsoft.com/en-us/support/plans/" target="_blank" title="Azure Support Plans">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="17" stroke-width="2.5"/><circle cx="12" cy="7.5" r="1.5" fill="currentColor" stroke="none"/></svg>
+          </a>
+        </label>
+        <select id="support">
+          <option value="basic" selected>Basic (free)</option>
+          <option value="developer">Developer ($29/mo)</option>
+          <option value="standard">Standard ($100/mo)</option>
+          <option value="professional-direct">Professional Direct ($1,000/mo)</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>&nbsp;</label>
+        <div class="toggle-row">
+          <input type="checkbox" id="hybrid-benefit" checked />
+          <label for="hybrid-benefit">Azure Hybrid Benefit (Windows VMs at Linux rate)</label>
+        </div>
+        <div class="toggle-row" style="margin-top:0.5rem">
+          <input type="checkbox" id="include-powered-off" />
+          <label for="include-powered-off">Include powered-off VMs in cost</label>
+        </div>
+      </div>
+
+    </div>
+
+    <p class="prices-note" id="prices-note">
+      Select a region above to load pricing data.
+    </p>
+  </div>
+
+  <!-- Step 4: Generate -->
+  <div class="card">
+    <h2>4 — Generate</h2>
+    <button class="btn btn-primary" id="run-btn" disabled onclick="runEstimator()">
+      Generate cost estimate
+    </button>
+  </div>
+
+  <!-- Run status (bottom) — processing + success + error -->
+  <div id="status-run">
+    <div class="status-msg loading" id="status-run-loading" style="display:none">
+      <div class="spinner"></div>
+      <span id="status-run-text">Preparing…</span>
+    </div>
+    <div class="status-msg success" id="status-success" style="display:none">
+      ✅ <span>Estimate ready!</span>
+      <button class="btn btn-success" id="download-btn" style="margin-left:auto" onclick="downloadResult()">
+        Download .xlsx
+      </button>
+    </div>
+    <div class="status-msg error" id="status-run-error" style="display:none">
+      ❌ <span id="status-run-error-text"></span>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <a href="https://github.com/KimTholstorf/azure-rvtools-cost-estimator" target="_blank" style="display:inline-flex;align-items:center;gap:0.3rem;">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+    azure-rvtools-cost-estimator
+  </a>
+  <span id="core-version"></span>
+  &nbsp;·&nbsp; MIT License © 2026 Kim Tholstorf
+</footer>
+
+<script>
+  // ── State ─────────────────────────────────────────────────────────────────
+  let pyodide      = null;
+  let uploadedFile = null;
+  let resultBytes  = null;
+  let pyodideReady = false;
+  let pricesLoaded = false;
+
+  // ── File upload / drag-drop ───────────────────────────────────────────────
+  const dropzone  = document.getElementById('dropzone');
+  const fileInput = document.getElementById('file-input');
+
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+  dropzone.addEventListener('dragleave', ()  => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+  function handleFile(file) {
+    if (!file || !file.name.endsWith('.xlsx')) {
+      showRunError('Please upload a .xlsx RVTools export file.');
+      return;
+    }
+    uploadedFile = file;
+    dropzone.classList.add('has-file');
+    const nameEl = document.getElementById('file-name');
+    nameEl.textContent = file.name;
+    nameEl.style.display = 'block';
+    updateRunButton();
+    if (pyodideReady) scanTopology();
+  }
+
+  function updateRunButton() {
+    document.getElementById('run-btn').disabled = !(uploadedFile && pyodideReady && pricesLoaded);
+  }
+
+  // ── Pricing mode toggle ───────────────────────────────────────────────────
+  function onPricingChange() {
+    const mode = document.getElementById('pricing').value;
+    document.getElementById('field-realistic-top').style.display =
+      mode === 'realistic' ? '' : 'none';
+    document.getElementById('reserved-term').closest('.field').style.display =
+      mode === 'all-payg' ? 'none' : '';
+  }
+
+  // ── Region change → load per-region prices ────────────────────────────────
+  async function onRegionChange() {
+    const region = document.getElementById('region').value;
+    if (!region) {
+      pricesLoaded = false;
+      updateRunButton();
+      document.getElementById('prices-note').textContent = 'Select a region above to load pricing data.';
+      return;
+    }
+
+    pricesLoaded = false;
+    updateRunButton();
+    document.getElementById('prices-note').innerHTML =
+      '<span class="prices-loading"><span class="mini-spinner"></span> Loading prices for ' + region + '…</span>';
+
+    try {
+      const resp = await fetch(`prices/prices_${region}_USD.json`);
+      if (!resp.ok) throw new Error(`Price file not found for region "${region}"`);
+      const pricesJson = await resp.text();
+
+      if (pyodideReady) {
+        // Write the price file into Pyodide's virtual FS for PricingClient to read
+        pyodide.FS.writeFile('/tmp/azure_prices_cache.json', pricesJson);
+      } else {
+        // Pyodide not ready yet — stash for when it is
+        window._pendingPricesJson = pricesJson;
+      }
+
+      // Show last updated date from fetched_at field
+      const data = JSON.parse(pricesJson);
+      const fetchedAt = new Date(data.fetched_at);
+      const dateStr = fetchedAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      document.getElementById('prices-note').innerHTML =
+        `Prices loaded from pre-fetched Azure list prices — last updated <strong>${dateStr}</strong>. ` +
+        `<a href="https://azure.microsoft.com/en-us/pricing/" target="_blank">azure.microsoft.com/pricing</a>`;
+
+      pricesLoaded = true;
+      updateRunButton();
+    } catch (err) {
+      document.getElementById('prices-note').textContent = '⚠ Could not load prices: ' + err.message;
+      pricesLoaded = false;
+      updateRunButton();
+    }
+  }
+
+  // ── Load Pyodide on page load ─────────────────────────────────────────────
+  async function initPyodide() {
+    showInitStatus('Loading Python environment (first load ~15s)…');
+
+    await loadScript('https://cdn.jsdelivr.net/pyodide/v0.27.5/full/pyodide.js');
+    pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.27.5/full/' });
+
+    showInitStatus('Installing packages…');
+    await pyodide.loadPackage('micropip');
+    const micropip = pyodide.pyimport('micropip');
+    await micropip.install(['pandas', 'openpyxl', 'tabulate', 'azure-rvtools']);
+
+    showInitStatus('Configuring estimator…');
+
+    // Import the CLI main and get version
+    await pyodide.runPythonAsync(`
+from azure_rvtools.cli import main as _main, VERSION as _version
+`);
+
+    const version = pyodide.globals.get('_version');
+    document.getElementById('core-version').textContent = 'v' + version + ' ·';
+
+    // Patch PricingClient to read from the virtual FS cache file instead of
+    // calling the Azure Retail Prices API (blocked by browser CORS policy).
+    await pyodide.runPythonAsync(`
+import pathlib
+import azure_rvtools.pricing as _pricing
+
+# Redirect all cache reads/writes to a single virtual file
+_pricing._cache_path = lambda region, currency: pathlib.Path('/tmp/azure_prices_cache.json')
+
+# Accept any existing file as valid — skip the 24-hour TTL check
+_pricing._is_cache_valid = lambda path: pathlib.Path(str(path)).exists()
+`);
+
+    // Create output dir
+    pyodide.FS.mkdir('/output');
+
+    // If prices were already fetched while Pyodide was loading, write them now
+    if (window._pendingPricesJson) {
+      pyodide.FS.writeFile('/tmp/azure_prices_cache.json', window._pendingPricesJson);
+      delete window._pendingPricesJson;
+    }
+
+    pyodideReady = true;
+    hideInitStatus();
+    updateRunButton();
+    if (uploadedFile) scanTopology();
+  }
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) return resolve();
+      const s = document.createElement('script');
+      s.src = src; s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  // ── Run estimator ─────────────────────────────────────────────────────────
+  async function runEstimator() {
+    if (!uploadedFile || !pyodideReady || !pricesLoaded) return;
+    resultBytes = null;
+    hideRunStatus();
+    showRunStatus('Preparing…');
+    document.getElementById('run-btn').disabled = true;
+
+    try {
+      const buf = await uploadedFile.arrayBuffer();
+      pyodide.FS.writeFile('/input.xlsx', new Uint8Array(buf));
+      showRunStatus('Processing RVTools export…');
+
+      const region      = document.getElementById('region').value;
+      const pricing     = document.getElementById('pricing').value;
+      const rsrvTerm    = document.getElementById('reserved-term').value;
+      const rTop        = document.getElementById('realistic-top').value;
+      const diskType    = document.getElementById('disk-type').value;
+      const diskSource  = document.getElementById('disk-source').value;
+      const support     = document.getElementById('support').value;
+      const hybridBen   = document.getElementById('hybrid-benefit').checked;
+      const inclOff     = document.getElementById('include-powered-off').checked;
+
+      const argv = [
+        '--rvtools',        '/input.xlsx',
+        '--output',         '/output/azure_estimate.xlsx',
+        '--region',         region,
+        '--pricing',        pricing,
+        '--reserved-term',  rsrvTerm,
+        '--disk-type',      diskType,
+        '--disk-source',    diskSource,
+        '--support',        support,
+      ];
+
+      if (pricing === 'realistic') argv.push('--realistic-top', rTop);
+      if (!hybridBen) argv.push('--os-license-included');
+      if (inclOff)    argv.push('--include-powered-off');
+
+      const selectedClusters = getSelectedClusters();
+      if (selectedClusters.length > 0) argv.push('--cluster', ...selectedClusters);
+
+      const argvJson = JSON.stringify(argv);
+      const rc = await pyodide.runPythonAsync(`
+_rc = _main(${argvJson})
+_rc
+`);
+
+      if (rc !== 0) throw new Error(`Estimator exited with code ${rc}`);
+
+      resultBytes = pyodide.FS.readFile('/output/azure_estimate.xlsx');
+      showSuccess();
+    } catch (err) {
+      showRunError(err.message || String(err));
+    } finally {
+      document.getElementById('run-btn').disabled = false;
+    }
+  }
+
+  // ── Download ──────────────────────────────────────────────────────────────
+  function downloadResult() {
+    if (!resultBytes) return;
+    const blob = new Blob([resultBytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'azure_estimate.xlsx'; a.click();
+    URL.revokeObjectURL(url);
+
+    // Reset UI
+    uploadedFile = null;
+    resultBytes  = null;
+    dropzone.classList.remove('has-file');
+    const nameEl = document.getElementById('file-name');
+    nameEl.textContent = ''; nameEl.style.display = 'none';
+    document.getElementById('file-input').value = '';
+    document.getElementById('filter-placeholder').textContent = 'Upload a file in step 1 to see available Datacenters and Clusters.';
+    document.getElementById('filter-placeholder').style.display = 'flex';
+    document.getElementById('filter-content').style.display = 'none';
+    document.getElementById('filter-groups').innerHTML = '';
+    hideRunStatus();
+    updateRunButton();
+  }
+
+  // ── Topology scan & filter checkboxes ────────────────────────────────────
+  async function scanTopology() {
+    if (!uploadedFile || !pyodideReady) return;
+    document.getElementById('filter-placeholder').style.display = 'none';
+    document.getElementById('filter-loading').style.display = 'flex';
+    document.getElementById('filter-content').style.display = 'none';
+    try {
+      const buf = await uploadedFile.arrayBuffer();
+      pyodide.FS.writeFile('/input_scan.xlsx', new Uint8Array(buf));
+      const topoJson = await pyodide.runPythonAsync(`
+import json as _json
+from azure_rvtools.rvtools import parse_rvtools
+_vms = parse_rvtools('/input_scan.xlsx', include_powered_off=True)
+_topo = {}
+for _vm in _vms:
+    _dc = _vm.datacenter or '(unknown)'
+    _cl = _vm.cluster or '(no cluster)'
+    _topo.setdefault(_dc, set()).add(_cl)
+_json.dumps({_dc: sorted(list(_topo[_dc])) for _dc in sorted(_topo)})
+`);
+      populateFilterCheckboxes(JSON.parse(topoJson));
+    } catch (err) {
+      document.getElementById('filter-placeholder').textContent = 'Could not read topology from file.';
+      document.getElementById('filter-placeholder').style.display = 'flex';
+    } finally {
+      document.getElementById('filter-loading').style.display = 'none';
+    }
+  }
+
+  function populateFilterCheckboxes(topology) {
+    const container = document.getElementById('filter-groups');
+    container.innerHTML = '';
+
+    if (Object.keys(topology).length === 0) {
+      document.getElementById('filter-placeholder').textContent =
+        'No Datacenter/Cluster data found in this file — all VMs will be included.';
+      document.getElementById('filter-placeholder').style.display = 'flex';
+      document.getElementById('filter-content').style.display = 'none';
+      return;
+    }
+
+    for (const [dc, clusters] of Object.entries(topology)) {
+      const dcId = 'dc-' + dc.replace(/\W/g, '_');
+      const group = document.createElement('div');
+      group.className = 'dc-group';
+      const header = document.createElement('div');
+      header.className = 'dc-header';
+      header.innerHTML = `<input type="checkbox" id="${dcId}" checked><label for="${dcId}">${dc}</label>`;
+      group.appendChild(header);
+      const clList = document.createElement('div');
+      clList.className = 'cluster-list';
+      for (const cl of clusters) {
+        const clId = 'cl-' + (dc + '-' + cl).replace(/\W/g, '_');
+        const item = document.createElement('div');
+        item.className = 'cluster-item';
+        item.innerHTML = `<input type="checkbox" class="cluster-cb" data-dc="${dcId}" id="${clId}" checked><label for="${clId}">${cl}</label>`;
+        clList.appendChild(item);
+      }
+      group.appendChild(clList);
+      container.appendChild(group);
+      const dcCb = header.querySelector('input');
+      dcCb.addEventListener('change', () => {
+        clList.querySelectorAll('.cluster-cb').forEach(cb => cb.checked = dcCb.checked);
+      });
+      clList.querySelectorAll('.cluster-cb').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const all = [...clList.querySelectorAll('.cluster-cb')];
+          const n = all.filter(c => c.checked).length;
+          dcCb.indeterminate = n > 0 && n < all.length;
+          dcCb.checked = n > 0;
+        });
+      });
+    }
+    document.getElementById('filter-content').style.display = 'block';
+  }
+
+  function setAllFilters(checked) {
+    document.querySelectorAll('#filter-groups input[type=checkbox]').forEach(cb => {
+      cb.checked = checked;
+      cb.indeterminate = false;
+    });
+  }
+
+  function getSelectedClusters() {
+    const all = [...document.querySelectorAll('#filter-groups .cluster-cb')];
+    if (all.length === 0) return [];
+    const checked = all.filter(cb => cb.checked);
+    if (checked.length === all.length) return [];
+    return checked.map(cb => document.querySelector(`label[for="${cb.id}"]`).textContent);
+  }
+
+  // ── Status helpers ────────────────────────────────────────────────────────
+  function showInitStatus(msg) {
+    document.getElementById('status-init-loading').style.display = 'flex';
+    document.getElementById('status-init-error').style.display   = 'none';
+    document.getElementById('status-init-text').textContent = msg;
+  }
+  function hideInitStatus() {
+    document.getElementById('status-init-loading').style.display = 'none';
+    document.getElementById('status-init-error').style.display   = 'none';
+  }
+  function showInitError(msg) {
+    document.getElementById('status-init-loading').style.display = 'none';
+    document.getElementById('status-init-error').style.display   = 'flex';
+    document.getElementById('status-init-error-text').textContent = msg;
+  }
+
+  function showRunStatus(msg) {
+    document.getElementById('status-run-loading').style.display = 'flex';
+    document.getElementById('status-run-text').textContent = msg;
+    document.getElementById('status-success').style.display   = 'none';
+    document.getElementById('status-run-error').style.display = 'none';
+  }
+  function showSuccess() {
+    document.getElementById('status-run-loading').style.display = 'none';
+    document.getElementById('status-success').style.display     = 'block';
+    document.getElementById('status-run-error').style.display   = 'none';
+  }
+  function showRunError(msg) {
+    document.getElementById('status-run-loading').style.display = 'none';
+    document.getElementById('status-success').style.display     = 'none';
+    document.getElementById('status-run-error').style.display   = 'flex';
+    document.getElementById('status-run-error-text').textContent = msg;
+  }
+  function hideRunStatus() {
+    document.getElementById('status-run-loading').style.display = 'none';
+    document.getElementById('status-success').style.display     = 'none';
+    document.getElementById('status-run-error').style.display   = 'none';
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  initPyodide().catch(err => showInitError('Failed to initialise: ' + err.message));
+</script>
+</body>
+</html>
