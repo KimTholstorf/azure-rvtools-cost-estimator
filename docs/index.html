@@ -259,7 +259,7 @@
 <header>
   <div>
     <h1>Azure RVTools Cost Estimator</h1>
-    <p>VMware RVTools Export to Azure IaaS monthly cost estimate — 100% browser-local via WebAssembly, nothing is uploaded or leaves your device.</p>
+    <p>VMware RVTools Export to Azure IaaS monthly cost estimate — 100% browser-local via WebAssembly. See more in <a href="security.html" target="_blank" style="color:rgba(255,255,255,0.85);text-decoration:underline;">Security &amp; Privacy</a></p>
   </div>
 </header>
 
@@ -372,6 +372,18 @@
             <option value="southafricanorth">South Africa North</option>
             <option value="southafricawest">South Africa West</option>
           </optgroup>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="currency">Currency</label>
+        <select id="currency" onchange="onCurrencyChange()">
+          <option value="USD" selected>USD — US Dollar</option>
+          <option value="EUR">EUR — Euro</option>
+          <option value="GBP">GBP — British Pound</option>
+          <option value="DKK">DKK — Danish Krone</option>
+          <option value="SEK">SEK — Swedish Krona</option>
+          <option value="NOK">NOK — Norwegian Krone</option>
         </select>
       </div>
 
@@ -501,11 +513,12 @@
 
 <script>
   // ── State ─────────────────────────────────────────────────────────────────
-  let pyodide      = null;
-  let uploadedFile = null;
-  let resultBytes  = null;
-  let pyodideReady = false;
-  let pricesLoaded = false;
+  let pyodide         = null;
+  let uploadedFile    = null;
+  let resultBytes     = null;
+  let pyodideReady    = false;
+  let pricesLoaded    = false;
+  let loadedPricesData = null;   // full region JSON (all currencies)
 
   // ── File upload / drag-drop ───────────────────────────────────────────────
   const dropzone  = document.getElementById('dropzone');
@@ -547,37 +560,33 @@
       mode === 'all-payg' ? 'none' : '';
   }
 
-  // ── Region change → load per-region prices ────────────────────────────────
+  // ── Region change → fetch the region file (all currencies embedded) ────────
   async function onRegionChange() {
     const region = document.getElementById('region').value;
     if (!region) {
       pricesLoaded = false;
+      loadedPricesData = null;
       updateRunButton();
       document.getElementById('prices-note').textContent = 'Select a region above to load pricing data.';
       return;
     }
 
     pricesLoaded = false;
+    loadedPricesData = null;
     updateRunButton();
     document.getElementById('prices-note').innerHTML =
       '<span class="prices-loading"><span class="mini-spinner"></span> Loading prices for ' + region + '…</span>';
 
     try {
-      const resp = await fetch(`prices/prices_${region}_USD.json`);
+      const resp = await fetch(`prices/prices_${region}.json`);
       if (!resp.ok) throw new Error(`Price file not found for region "${region}"`);
-      const pricesJson = await resp.text();
+      loadedPricesData = await resp.json();
 
-      if (pyodideReady) {
-        // Write the price file into Pyodide's virtual FS for PricingClient to read
-        pyodide.FS.writeFile('/tmp/azure_prices_cache.json', pricesJson);
-      } else {
-        // Pyodide not ready yet — stash for when it is
-        window._pendingPricesJson = pricesJson;
-      }
+      // Write the selected currency slice to Pyodide FS
+      updatePricesCache();
 
-      // Show last updated date from fetched_at field
-      const data = JSON.parse(pricesJson);
-      const fetchedAt = new Date(data.fetched_at);
+      // Show last updated date
+      const fetchedAt = new Date(loadedPricesData.fetched_at);
       const dateStr = fetchedAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
       document.getElementById('prices-note').innerHTML =
         `Prices loaded from pre-fetched Azure list prices — last updated <strong>${dateStr}</strong>. ` +
@@ -589,6 +598,32 @@
       document.getElementById('prices-note').textContent = '⚠ Could not load prices: ' + err.message;
       pricesLoaded = false;
       updateRunButton();
+    }
+  }
+
+  // ── Currency change → instant switch, no network request needed ──────────
+  function onCurrencyChange() {
+    if (!loadedPricesData) return;
+    updatePricesCache();
+  }
+
+  // ── Write selected currency slice to Pyodide FS ──────────────────────────
+  function updatePricesCache() {
+    if (!loadedPricesData) return;
+    const currency = document.getElementById('currency').value;
+    const currencyData = loadedPricesData.currencies[currency];
+    if (!currencyData) return;
+    const cacheEntry = JSON.stringify({
+      fetched_at: loadedPricesData.fetched_at,
+      region:     loadedPricesData.region,
+      currency:   currency,
+      vm_prices:  currencyData.vm_prices,
+      disk_prices: currencyData.disk_prices,
+    });
+    if (pyodideReady) {
+      pyodide.FS.writeFile('/tmp/azure_prices_cache.json', cacheEntry);
+    } else {
+      window._pendingPricesJson = cacheEntry;
     }
   }
 
@@ -630,7 +665,7 @@ _pricing._is_cache_valid = lambda path: pathlib.Path(str(path)).exists()
     // Create output dir
     pyodide.FS.mkdir('/output');
 
-    // If prices were already fetched while Pyodide was loading, write them now
+    // If a currency slice was already prepared while Pyodide was loading, write it now
     if (window._pendingPricesJson) {
       pyodide.FS.writeFile('/tmp/azure_prices_cache.json', window._pendingPricesJson);
       delete window._pendingPricesJson;
@@ -665,6 +700,7 @@ _pricing._is_cache_valid = lambda path: pathlib.Path(str(path)).exists()
       showRunStatus('Processing RVTools export…');
 
       const region      = document.getElementById('region').value;
+      const currency    = document.getElementById('currency').value;
       const pricing     = document.getElementById('pricing').value;
       const rsrvTerm    = document.getElementById('reserved-term').value;
       const rTop        = document.getElementById('realistic-top').value;
@@ -678,6 +714,7 @@ _pricing._is_cache_valid = lambda path: pathlib.Path(str(path)).exists()
         '--rvtools',        '/input.xlsx',
         '--output',         '/output/azure_estimate.xlsx',
         '--region',         region,
+        '--currency',       currency,
         '--pricing',        pricing,
         '--reserved-term',  rsrvTerm,
         '--disk-type',      diskType,

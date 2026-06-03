@@ -1,9 +1,12 @@
 <div align="center">
-  <img src="images/logo_gh.png" width="345" height="93" alt="Logo"/>
+  <h2>azure-rvtools-cost-estimator</h2>
   <h4 align="center">Turn VMware RVTools exports into an Azure IaaS monthly cost estimate</h4>
 </div>
 
 <div align="center">
+  <a href="https://kimtholstorf.github.io/azure-rvtools-cost-estimator" target="_blank" rel="noopener">
+    <img alt="Web App" src="https://img.shields.io/badge/web_app-GitHub_Pages-brightgreen">
+  </a>
   <a href="https://pypi.org/project/azure-rvtools/" target="_blank" rel="noopener">
     <img alt="GitHub Actions PyPi Status" src="https://img.shields.io/github/actions/workflow/status/KimTholstorf/azure-rvtools-cost-estimator/pypi-publish.yml?label=pypi&cacheSeconds=0">
   </a>
@@ -22,10 +25,13 @@ Unlike aggregate-style estimators, `azure-rvtools` maps each VM to a specific Az
 
 ## 🚀 Features
 
+- **Browser-based web app** – no install required. Drop in your RVTools export on [GitHub Pages](https://kimtholstorf.github.io/azure-rvtools-cost-estimator), pick a region and currency, and download the estimate instantly. Runs 100% browser-local via WebAssembly — nothing is uploaded, nothing leaves your device.
 - **Per-VM SKU matching** – maps each VM to the closest Azure Dsv5 or Esv5 SKU based on vCPU and RAM, with notes when an exact match isn't found.
 - **Realistic pricing mode** – the default `--pricing realistic` reserves the top N SKUs by VM count (configurable via `--realistic-top`) and prices the remainder at PAYG — a practical reflection of how customers actually buy reservations.
 - **1-year and 3-year reservations** – choose your commitment term with `--reserved-term` (default: `3-year`).
 - **Azure Hybrid Benefit** – enabled by default, applying Linux compute rates to Windows VMs. Disable with `--os-license-included` to use Windows-included pricing.
+- **Multi-currency support** – USD, EUR, GBP, DKK, SEK, NOK via `--currency`.
+- **Disk capacity source** – price managed disks based on provisioned capacity (default) or actual in-use capacity via `--disk-source`.
 - **Support plan pricing** – add an Azure support plan cost to the estimate with `--support` (`basic`, `developer`, `standard`, `professional-direct`).
 - **Datacenter and Cluster filtering** – list all Datacenters and Clusters in the input, then scope the estimate to a specific subset.
 - **Powered-off VM handling** – counted and reported separately; excluded from costs unless `--include-powered-off` is set.
@@ -37,6 +43,12 @@ Unlike aggregate-style estimators, `azure-rvtools` maps each VM to a specific Az
 ---
 
 ## ⚡ Quick start
+
+### Online (no install)
+
+Visit **[kimtholstorf.github.io/azure-rvtools-cost-estimator](https://kimtholstorf.github.io/azure-rvtools-cost-estimator)** — drop in your RVTools `.xlsx`, choose your region, currency, and options, and download the estimate. Everything runs in your browser via WebAssembly.
+
+### CLI
 
 ```bash
 # Install from PyPI
@@ -113,6 +125,8 @@ The generated Excel workbook (default: `azure_estimate.xlsx`) contains four shee
 | `--realistic-top N` | Number of top SKUs by VM count to price as reserved in realistic mode. Default: `3`. |
 | `--reserved-term TERM` | Reservation commitment term: `1-year` or `3-year` (default). |
 | `--disk-type TYPE` | Managed disk type: `premium-ssd` (default), `standard-ssd`, or `standard-hdd`. |
+| `--disk-source SOURCE` | Disk capacity source: `provisioned` (default) or `in-use`. |
+| `--currency CODE` | Currency for pricing and output: `USD` (default), `EUR`, `GBP`, `DKK`, `SEK`, `NOK`. |
 | `--os-license-included` | Use Windows-included pricing for Windows VMs. Disables Azure Hybrid Benefit (on by default). |
 | `--support PLAN` | Azure support plan: `basic` (free, default), `developer`, `standard`, `professional-direct`. |
 | `--include-powered-off` | Include powered-off VMs in cost calculations. |
@@ -121,7 +135,6 @@ The generated Excel workbook (default: `azure_estimate.xlsx`) contains four shee
 | `--cluster NAME [NAME ...]` | Only include VMs from the given Cluster(s). |
 | `--output PATH` | Excel workbook output path. Default: `azure_estimate.xlsx`. |
 | `--csv PATH` | Also write a CSV to this path. |
-| `--currency CODE` | Currency code passed to the Azure Retail Prices API. Default: `USD`. |
 | `--no-cache` | Bypass the local pricing cache and fetch fresh prices. |
 | `--version` | Print the version and exit. |
 
@@ -167,6 +180,13 @@ azure-rvtools \
   --region westeurope \
   --realistic-top 5
 
+# Estimate in Euros using in-use disk capacity
+azure-rvtools \
+  --rvtools ./customer/RVTools_export_all.xlsx \
+  --region westeurope \
+  --currency EUR \
+  --disk-source in-use
+
 # Windows VMs with OS license included (no Hybrid Benefit) and Standard support
 azure-rvtools \
   --rvtools ./customer/RVTools_export_all.xlsx \
@@ -205,7 +225,7 @@ The **Reservations sheet** is always populated regardless of mode, so you can se
 
 ## 🖥️ VM series selection
 
-The tool maps VMs to **Dsv5** (general purpose) or **Esv5** (memory optimised) series — both v5 generation, Intel-based, and available across ~58 Azure regions, making them the safest default for estimates targeting any region.
+The tool maps VMs to **Dsv5** (general purpose) or **Esv5** (memory optimised) series — both v5 generation, Intel-based, and available across ~58 Azure regions, making them the safest default for estimates targeting any region. The web app uses the same mapping.
 
 The D/E split uses a RAM/vCPU ratio threshold of 8 GB/vCPU — matching the architectural difference between the two families:
 - **Dsv5** — ratio ≤ 8 GB/vCPU (e.g. Standard_D4s_v5 = 4 vCPUs / 16 GB)
@@ -218,6 +238,7 @@ The newer v6 series (Dsv6/Esv6, GA February 2025) is 15–30% faster per dollar 
 ## ⚠️ Notes
 
 - The CLI relies on real-time pricing from the Azure Retail Prices API. Pricing data is cached locally (in `~/.cache/azure-rvtools/`) to speed up repeat runs for the same region and currency. Use `--no-cache` to force a refresh.
+- The web app uses pre-fetched pricing data updated weekly — no live API calls from the browser.
 - Azure Hybrid Benefit is enabled by default. If your Windows VMs are covered by existing on-premises licenses migrating to Azure, this reflects your actual compute cost. Use `--os-license-included` if licences are not being brought across.
 - Windows reserved pricing is derived as `linux_reserved + (windows_payg − linux_payg)` since the Azure Retail Prices API only publishes Linux reservation products.
 - Generated Excel workbooks contain formulas and formatting. Excel recalculates automatically when opened.

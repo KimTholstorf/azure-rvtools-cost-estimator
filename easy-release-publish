@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+# Copyright (c) 2026 Kim Tholstorf
+# https://github.com/KimTholstorf/azure-rvtools-cost-estimator
+# MIT License — see LICENSE file for details
+#
+# Easy Release Publisher
+# Checks and syncs version numbers across the project, then commits, tags, and
+# pushes to trigger the PyPI and GitHub Actions workflows.
+#
+# Usage:
+#   ./easy-release-publish
+#   ./easy-release-publish --version 1.0.8
+#   ./easy-release-publish --version 1.0.8 --commit "release message"
+#   ./easy-release-publish --version 1.0.8 --commit "release message" --auto-proceed
+set -euo pipefail
+
+# ── Config — update these paths if the project structure changes ───────────────
+CLI_FILE="azure_rvtools/cli.py"       # Contains VERSION = "x.y.z"
+EXCEL_FILE="azure_rvtools/excel.py"   # Also contains VERSION = "x.y.z"
+PYPROJECT="pyproject.toml"
+
+# ── Parse arguments ────────────────────────────────────────────────────────────
+ARG_VERSION=""
+ARG_COMMIT=""
+ARG_AUTO_PROCEED=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --version)
+            ARG_VERSION="$2"
+            shift 2
+            ;;
+        --commit)
+            ARG_COMMIT="$2"
+            shift 2
+            ;;
+        --auto-proceed)
+            ARG_AUTO_PROCEED=true
+            shift
+            ;;
+        *)
+            echo "Unknown argument: $1"
+            echo "Usage: ./easy-release-publish [--version 1.0.8] [--commit \"message\"] [--auto-proceed]"
+            exit 1
+            ;;
+    esac
+done
+
+# ── Sync remote docs/prices/ if the weekly workflow has pushed it ahead of local
+git fetch origin main --quiet
+PRICES_AHEAD=$(git log HEAD..origin/main --oneline -- docs/prices/ | wc -l | tr -d ' ')
+if [ "$PRICES_AHEAD" -gt 0 ]; then
+    echo "ℹ️  docs/prices/ has been updated on remote by the weekly workflow — pulling it in before release..."
+    git stash --quiet
+    git pull --rebase origin main --quiet
+    git stash pop --quiet 2>/dev/null || true
+    echo "✅ docs/prices/ synced — continuing with release"
+    echo ""
+fi
+
+# ── Extract current versions from all three source files ──────────────────────
+CLI_VERSION=$(grep 'VERSION = ' "$CLI_FILE" | sed 's/.*VERSION = "\(.*\)".*/\1/')
+EXCEL_VERSION=$(grep 'VERSION = ' "$EXCEL_FILE" | sed 's/.*VERSION = "\(.*\)".*/\1/')
+PYPROJECT_VERSION=$(grep '^version = ' "$PYPROJECT" | sed 's/version = "\(.*\)"/\1/')
+
+echo ""
+echo "Current versions:"
+echo "  cli.py         → $CLI_VERSION"
+echo "  excel.py       → $EXCEL_VERSION"
+echo "  pyproject.toml → $PYPROJECT_VERSION"
+echo ""
+
+# Check for mismatches
+ALL_MATCH=true
+[ "$CLI_VERSION" != "$EXCEL_VERSION" ]     && ALL_MATCH=false
+[ "$CLI_VERSION" != "$PYPROJECT_VERSION" ] && ALL_MATCH=false
+
+# ── Resolve which version to use ──────────────────────────────────────────────
+if [ -n "$ARG_VERSION" ]; then
+    NEW_VERSION="$ARG_VERSION"
+    echo "Using version from --version flag: $NEW_VERSION"
+elif [ "$ALL_MATCH" = false ]; then
+    echo "⚠️  Version mismatch detected!"
+    echo ""
+    echo "  1) Use $CLI_VERSION  (from cli.py)"
+    echo "  2) Use $PYPROJECT_VERSION  (from pyproject.toml)"
+    echo "  3) Enter a different version"
+    echo ""
+    read -rp "Choice [1/2/3]: " choice
+    case $choice in
+        1) NEW_VERSION="$CLI_VERSION" ;;
+        2) NEW_VERSION="$PYPROJECT_VERSION" ;;
+        3)
+            read -rp "Enter version: " NEW_VERSION
+            if [ -z "$NEW_VERSION" ]; then
+                echo "Version cannot be empty. Aborting."
+                exit 1
+            fi
+            ;;
+        *)
+            echo "Invalid choice. Aborting."
+            exit 1
+            ;;
+    esac
+else
+    echo "✅ All versions match: $CLI_VERSION"
+    echo ""
+    read -rp "Enter new version (or press Enter to keep $CLI_VERSION): " NEW_VERSION
+    NEW_VERSION="${NEW_VERSION:-$CLI_VERSION}"
+fi
+
+# ── Update version in all three files if changed ──────────────────────────────
+if [ "$NEW_VERSION" != "$CLI_VERSION" ] || [ "$ALL_MATCH" = false ]; then
+    echo ""
+    echo "Updating version to $NEW_VERSION ..."
+
+    python3 - <<PYEOF
+import re
+
+for path, pattern in [
+    ("$CLI_FILE",   r'VERSION = ".*"'),
+    ("$EXCEL_FILE", r'VERSION = ".*"'),
+    ("$PYPROJECT",  r'^version = ".*"'),
+]:
+    with open(path, "r") as f:
+        content = f.read()
+    if path == "$PYPROJECT":
+        content = re.sub(pattern, 'version = "$NEW_VERSION"', content, flags=re.MULTILINE)
+    else:
+        content = re.sub(pattern, 'VERSION = "$NEW_VERSION"', content)
+    with open(path, "w") as f:
+        f.write(content)
+    print(f"  updated {path}")
+PYEOF
+
+    echo "✅ Version set to $NEW_VERSION"
+fi
+
+# ── Build git tag ─────────────────────────────────────────────────────────────
+TAG="v$NEW_VERSION"
+
+# ── Guard against re-using an existing local tag ──────────────────────────────
+if git rev-parse "$TAG" >/dev/null 2>&1; then
+    echo ""
+    echo "⚠️  Tag $TAG already exists locally."
+    read -rp "Delete and recreate it? [y/N]: " retag
+    if [[ "$retag" == "y" || "$retag" == "Y" ]]; then
+        git tag -d "$TAG"
+    else
+        echo "Aborting."
+        exit 1
+    fi
+fi
+
+# ── Resolve commit message ────────────────────────────────────────────────────
+if [ -n "$ARG_COMMIT" ]; then
+    COMMIT_MSG="$ARG_COMMIT"
+    echo ""
+    echo "Using commit message from --commit flag: \"$COMMIT_MSG\""
+else
+    echo ""
+    read -rp "Commit message: " COMMIT_MSG
+    if [ -z "$COMMIT_MSG" ]; then
+        echo "Commit message cannot be empty. Aborting."
+        exit 1
+    fi
+fi
+
+# ── Show summary before executing ─────────────────────────────────────────────
+echo ""
+echo "About to run:"
+echo "  git add ."
+echo "  git commit -m \"$COMMIT_MSG\""
+echo "  git push origin main"
+echo "  git tag $TAG"
+echo "  git push origin $TAG"
+echo ""
+
+if [ "$ARG_AUTO_PROCEED" = true ]; then
+    echo "Auto-proceeding (--auto-proceed)"
+else
+    read -rp "Proceed? [y/N]: " confirm
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        echo "Aborted."
+        exit 0
+    fi
+fi
+
+# ── Commit, push, tag, and push tag ───────────────────────────────────────────
+git add .
+git commit -m "$COMMIT_MSG"
+git push origin main
+git tag "$TAG"
+git push origin "$TAG"
+
+REPO_URL=$(git remote get-url origin | sed 's/git@github.com:/https:\/\/github.com\//' | sed 's/\.git$//')
+
+echo ""
+echo "🚀 Released $TAG to:"
+echo "  $REPO_URL"

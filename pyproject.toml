@@ -30,6 +30,11 @@ Repository = "https://github.com/KimTholstorf/azure-rvtools-cost-estimator"
 [project.scripts]
 azure-rvtools = "azure_rvtools:main"
 
+[project.optional-dependencies]
+tools = [
+    "rich>=15.0.0",
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["azure_rvtools*"]

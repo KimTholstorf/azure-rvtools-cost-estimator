@@ -23,7 +23,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install package and dependencies
-        run: pip install -e .
+        run: pip install -e . rich
 
       - name: Fetch pricing data for all regions
         run: python scripts/fetch_web_prices.py
