@@ -1,5 +1,5 @@
 <div align="center">
-  <h2>azure-rvtools-cost-estimator</h2>
+  <img src="images/logo_gh.png" width="345" height="93" alt="Logo"/>
   <h4 align="center">Turn VMware RVTools exports into an Azure IaaS monthly cost estimate</h4>
 </div>
 
@@ -25,7 +25,7 @@ Unlike aggregate-style estimators, `azure-rvtools` maps each VM to a specific Az
 
 ## 🚀 Features
 
-- **Browser-based web app** – no install required. Drop in your RVTools export on [GitHub Pages](https://kimtholstorf.github.io/azure-rvtools-cost-estimator), pick a region and currency, and download the estimate instantly. Runs 100% browser-local via WebAssembly — nothing is uploaded, nothing leaves your device.
+- **Browser-based web app** – no install required. Drop in your RVTools export on [this website](https://kimtholstorf.github.io/azure-rvtools-cost-estimator), pick a region and currency, and download the estimate instantly. Runs 100% browser-local via WebAssembly — nothing is uploaded, nothing leaves your device.
 - **Per-VM SKU matching** – maps each VM to the closest Azure Dsv5 or Esv5 SKU based on vCPU and RAM, with notes when an exact match isn't found.
 - **Realistic pricing mode** – the default `--pricing realistic` reserves the top N SKUs by VM count (configurable via `--realistic-top`) and prices the remainder at PAYG — a practical reflection of how customers actually buy reservations.
 - **1-year and 3-year reservations** – choose your commitment term with `--reserved-term` (default: `3-year`).
@@ -232,6 +232,23 @@ The D/E split uses a RAM/vCPU ratio threshold of 8 GB/vCPU — matching the arch
 - **Esv5** — ratio > 8 GB/vCPU (e.g. Standard_E4s_v5 = 4 vCPUs / 32 GB)
 
 The newer v6 series (Dsv6/Esv6, GA February 2025) is 15–30% faster per dollar but only available in ~13 regions today. v5 remains the recommended default for broad regional coverage and is still listed by Microsoft as a current migration target alongside v6.
+
+---
+
+## 🔄 Web pricing data
+
+The web app cannot call the Azure Retail Prices API directly (blocked by browser CORS policy), so pricing data is pre-fetched and stored as static JSON files in `docs/prices/` — one file per region, with all supported currencies embedded.
+
+These files are refreshed automatically every Monday by a GitHub Actions workflow. To refresh them manually:
+
+```bash
+# Requires the [tools] optional dependency
+pip install azure-rvtools[tools]
+
+python scripts/fetch_web_prices.py
+```
+
+The script fetches all 42 regions × 6 currencies in parallel (~3 minutes) and displays a live progress board in the terminal.
 
 ---
 
