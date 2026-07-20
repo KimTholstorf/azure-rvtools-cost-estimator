@@ -1,7 +1,204 @@
 {
-  "fetched_at": "2026-07-13T07:10:01.279923+00:00",
+  "fetched_at": "2026-07-20T07:08:02.996357+00:00",
   "region": "francecentral",
   "currencies": {
+    "EUR": {
+      "vm_prices": {
+        "Standard_D8s_v5": {
+          "windows_payg": 0.716104,
+          "linux_payg": 0.393155,
+          "linux_1yr": 0.2425360799086758,
+          "linux_3yr": 0.1553125853500761,
+          "windows_1yr": 0.5654850799086758,
+          "windows_3yr": 0.4782615853500761
+        },
+        "Standard_D96s_v5": {
+          "windows_payg": 8.593243,
+          "linux_payg": 4.717859,
+          "linux_1yr": 2.9109338591324203,
+          "linux_3yr": 1.8635506640791475,
+          "windows_1yr": 6.78631785913242,
+          "windows_3yr": 5.738934664079147
+        },
+        "Standard_D16s_v5": {
+          "windows_payg": 1.432207,
+          "linux_payg": 0.78631,
+          "linux_1yr": 0.48517233984018265,
+          "linux_3yr": 0.3105917773592085,
+          "windows_1yr": 1.1310693398401828,
+          "windows_3yr": 0.9564887773592086
+        },
+        "Standard_D64s_v5": {
+          "windows_payg": 5.728828,
+          "linux_payg": 3.145239,
+          "linux_1yr": 1.9405891793378995,
+          "linux_3yr": 1.2423671093987823,
+          "windows_1yr": 4.524178179337899,
+          "windows_3yr": 3.825956109398782
+        },
+        "Standard_D48s_v5": {
+          "windows_payg": 4.296621,
+          "linux_payg": 2.358929,
+          "linux_1yr": 1.455416839497717,
+          "linux_3yr": 0.9317753320395737,
+          "windows_1yr": 3.3931088394977174,
+          "windows_3yr": 2.869467332039574
+        },
+        "Standard_D4s_v5": {
+          "linux_payg": 0.196577,
+          "windows_payg": 0.358052,
+          "linux_1yr": 0.12131813002283104,
+          "linux_3yr": 0.07763959600456621,
+          "windows_1yr": 0.282793130022831,
+          "windows_3yr": 0.2391145960045662
+        },
+        "Standard_D32s_v5": {
+          "linux_payg": 1.57262,
+          "windows_payg": 2.864414,
+          "linux_1yr": 0.9703446796803653,
+          "linux_3yr": 0.6211835546803652,
+          "windows_1yr": 2.2621386796803655,
+          "windows_3yr": 1.9129775546803653
+        },
+        "Standard_D2s_v5": {
+          "linux_payg": 0.098289,
+          "windows_payg": 0.179026,
+          "linux_1yr": 0.06060897488584475,
+          "linux_3yr": 0.03883649467275495,
+          "windows_1yr": 0.14134597488584474,
+          "windows_3yr": 0.11957349467275494
+        },
+        "Standard_E64s_v5": {
+          "linux_payg": 4.156209,
+          "windows_payg": 6.739798,
+          "linux_1yr": 2.564410810616438,
+          "linux_3yr": 1.6417184764840183,
+          "windows_1yr": 5.147999810616438,
+          "windows_3yr": 4.225307476484019
+        },
+        "Standard_E32s_v5": {
+          "windows_payg": 3.369899,
+          "linux_payg": 2.078104,
+          "linux_1yr": 1.2822054053652967,
+          "linux_3yr": 0.8208425415525114,
+          "windows_1yr": 2.5740004053652967,
+          "windows_3yr": 2.1126375415525116
+        },
+        "Standard_E20s_v5": {
+          "windows_payg": 2.106187,
+          "linux_payg": 1.298815,
+          "linux_1yr": 0.8013408107305936,
+          "linux_3yr": 0.5130224143074581,
+          "windows_1yr": 1.6087128107305935,
+          "windows_3yr": 1.320394414307458
+        },
+        "Standard_E8s_v5": {
+          "linux_payg": 0.519526,
+          "windows_payg": 0.842475,
+          "linux_1yr": 0.320576396347032,
+          "linux_3yr": 0.20520228706240487,
+          "windows_1yr": 0.643525396347032,
+          "windows_3yr": 0.5281512870624048
+        },
+        "Standard_E48s_v5": {
+          "linux_payg": 3.117157,
+          "windows_payg": 5.054849,
+          "linux_1yr": 1.9232580179223746,
+          "linux_3yr": 1.2312805090182648,
+          "windows_1yr": 3.8609500179223746,
+          "windows_3yr": 3.1689725090182645
+        },
+        "Standard_E96s_v5": {
+          "linux_payg": 6.234313,
+          "windows_payg": 10.109697,
+          "linux_1yr": 3.8466162159817356,
+          "linux_3yr": 2.4625610180365296,
+          "windows_1yr": 7.722000215981736,
+          "windows_3yr": 6.33794501803653
+        },
+        "Standard_E16s_v5": {
+          "linux_payg": 1.039052,
+          "windows_payg": 1.68495,
+          "linux_1yr": 0.6410526125570776,
+          "linux_3yr": 0.4104379674657534,
+          "windows_1yr": 1.2869506125570775,
+          "windows_3yr": 1.0563359674657533
+        },
+        "Standard_E2s_v5": {
+          "windows_payg": 0.210619,
+          "linux_payg": 0.129882,
+          "linux_1yr": 0.080144099086758,
+          "linux_3yr": 0.05129222340182648,
+          "windows_1yr": 0.16088109908675802,
+          "windows_3yr": 0.1320292234018265
+        },
+        "Standard_E4s_v5": {
+          "linux_payg": 0.259763,
+          "windows_payg": 0.421237,
+          "linux_1yr": 0.160288198173516,
+          "linux_3yr": 0.10261784022070014,
+          "windows_1yr": 0.3217621981735159,
+          "windows_3yr": 0.2640918402207001
+        }
+      },
+      "disk_prices": {
+        "premium-ssd": {
+          "P20": 3.603335,
+          "P15": 2.001755,
+          "P10": 0.997806,
+          "P80": 240.22817,
+          "P2": 0.065818,
+          "P30": 7.20667,
+          "P3": 0.131637,
+          "Snapshots": 0.140412,
+          "P4": 0.285213,
+          "P6": 0.515138,
+          "P60": 55.853444,
+          "P1": 0.032909,
+          "Confidential Compute Encryption": 2.9e-05,
+          "Burst Enablement": 26.959193,
+          "P70": 120.114085,
+          "P50": 27.927161,
+          "P40": 14.414217,
+          "Burst Transactions": 0.005485
+        },
+        "standard-ssd": {
+          "E40": 0.001755,
+          "E70": 0.001755,
+          "E3": 0.131637,
+          "E2": 0.065818,
+          "E15": 0.001755,
+          "E50": 0.001755,
+          "E60": 0.001755,
+          "E20": 0.001755,
+          "E1": 0.032909,
+          "E30": 0.001755,
+          "E6": 0.001755,
+          "E80": 0.001755,
+          "E4": 0.001755,
+          "E10": 0.001755,
+          "Confidential Compute Encryption": 2e-05,
+          "Snapshots": 0.140412,
+          "Disk Transactions": 0.002194
+        },
+        "standard-hdd": {
+          "S70": 0.000439,
+          "S20": 0.000439,
+          "S15": 0.000439,
+          "Snapshots": 0.046512,
+          "S60": 0.000439,
+          "S50": 0.000439,
+          "S30": 0.000439,
+          "Standard HDD Managed Disks - Confidential Compute Encryption": 1e-05,
+          "S4": 0.000439,
+          "S40": 0.000439,
+          "S10": 0.000439,
+          "Disk Transactions": 0.000548,
+          "S6": 0.000439,
+          "S80": 0.000439
+        }
+      }
+    },
     "USD": {
       "vm_prices": {
         "Standard_D8s_v5": {
@@ -787,203 +984,6 @@
           "Disk Transactions": 0.0041,
           "S6": 0.00328,
           "S80": 0.00328
-        }
-      }
-    },
-    "EUR": {
-      "vm_prices": {
-        "Standard_D8s_v5": {
-          "windows_payg": 0.716104,
-          "linux_payg": 0.393155,
-          "linux_1yr": 0.2425360799086758,
-          "linux_3yr": 0.1553125853500761,
-          "windows_1yr": 0.5654850799086758,
-          "windows_3yr": 0.4782615853500761
-        },
-        "Standard_D96s_v5": {
-          "windows_payg": 8.593243,
-          "linux_payg": 4.717859,
-          "linux_1yr": 2.9109338591324203,
-          "linux_3yr": 1.8635506640791475,
-          "windows_1yr": 6.78631785913242,
-          "windows_3yr": 5.738934664079147
-        },
-        "Standard_D16s_v5": {
-          "windows_payg": 1.432207,
-          "linux_payg": 0.78631,
-          "linux_1yr": 0.48517233984018265,
-          "linux_3yr": 0.3105917773592085,
-          "windows_1yr": 1.1310693398401828,
-          "windows_3yr": 0.9564887773592086
-        },
-        "Standard_D64s_v5": {
-          "windows_payg": 5.728828,
-          "linux_payg": 3.145239,
-          "linux_1yr": 1.9405891793378995,
-          "linux_3yr": 1.2423671093987823,
-          "windows_1yr": 4.524178179337899,
-          "windows_3yr": 3.825956109398782
-        },
-        "Standard_D48s_v5": {
-          "windows_payg": 4.296621,
-          "linux_payg": 2.358929,
-          "linux_1yr": 1.455416839497717,
-          "linux_3yr": 0.9317753320395737,
-          "windows_1yr": 3.3931088394977174,
-          "windows_3yr": 2.869467332039574
-        },
-        "Standard_D4s_v5": {
-          "linux_payg": 0.196577,
-          "windows_payg": 0.358052,
-          "linux_1yr": 0.12131813002283104,
-          "linux_3yr": 0.07763959600456621,
-          "windows_1yr": 0.282793130022831,
-          "windows_3yr": 0.2391145960045662
-        },
-        "Standard_D32s_v5": {
-          "linux_payg": 1.57262,
-          "windows_payg": 2.864414,
-          "linux_1yr": 0.9703446796803653,
-          "linux_3yr": 0.6211835546803652,
-          "windows_1yr": 2.2621386796803655,
-          "windows_3yr": 1.9129775546803653
-        },
-        "Standard_D2s_v5": {
-          "linux_payg": 0.098289,
-          "windows_payg": 0.179026,
-          "linux_1yr": 0.06060897488584475,
-          "linux_3yr": 0.03883649467275495,
-          "windows_1yr": 0.14134597488584474,
-          "windows_3yr": 0.11957349467275494
-        },
-        "Standard_E64s_v5": {
-          "linux_payg": 4.156209,
-          "windows_payg": 6.739798,
-          "linux_1yr": 2.564410810616438,
-          "linux_3yr": 1.6417184764840183,
-          "windows_1yr": 5.147999810616438,
-          "windows_3yr": 4.225307476484019
-        },
-        "Standard_E32s_v5": {
-          "windows_payg": 3.369899,
-          "linux_payg": 2.078104,
-          "linux_1yr": 1.2822054053652967,
-          "linux_3yr": 0.8208425415525114,
-          "windows_1yr": 2.5740004053652967,
-          "windows_3yr": 2.1126375415525116
-        },
-        "Standard_E20s_v5": {
-          "windows_payg": 2.106187,
-          "linux_payg": 1.298815,
-          "linux_1yr": 0.8013408107305936,
-          "linux_3yr": 0.5130224143074581,
-          "windows_1yr": 1.6087128107305935,
-          "windows_3yr": 1.320394414307458
-        },
-        "Standard_E8s_v5": {
-          "linux_payg": 0.519526,
-          "windows_payg": 0.842475,
-          "linux_1yr": 0.320576396347032,
-          "linux_3yr": 0.20520228706240487,
-          "windows_1yr": 0.643525396347032,
-          "windows_3yr": 0.5281512870624048
-        },
-        "Standard_E48s_v5": {
-          "linux_payg": 3.117157,
-          "windows_payg": 5.054849,
-          "linux_1yr": 1.9232580179223746,
-          "linux_3yr": 1.2312805090182648,
-          "windows_1yr": 3.8609500179223746,
-          "windows_3yr": 3.1689725090182645
-        },
-        "Standard_E96s_v5": {
-          "linux_payg": 6.234313,
-          "windows_payg": 10.109697,
-          "linux_1yr": 3.8466162159817356,
-          "linux_3yr": 2.4625610180365296,
-          "windows_1yr": 7.722000215981736,
-          "windows_3yr": 6.33794501803653
-        },
-        "Standard_E16s_v5": {
-          "linux_payg": 1.039052,
-          "windows_payg": 1.68495,
-          "linux_1yr": 0.6410526125570776,
-          "linux_3yr": 0.4104379674657534,
-          "windows_1yr": 1.2869506125570775,
-          "windows_3yr": 1.0563359674657533
-        },
-        "Standard_E2s_v5": {
-          "windows_payg": 0.210619,
-          "linux_payg": 0.129882,
-          "linux_1yr": 0.080144099086758,
-          "linux_3yr": 0.05129222340182648,
-          "windows_1yr": 0.16088109908675802,
-          "windows_3yr": 0.1320292234018265
-        },
-        "Standard_E4s_v5": {
-          "linux_payg": 0.259763,
-          "windows_payg": 0.421237,
-          "linux_1yr": 0.160288198173516,
-          "linux_3yr": 0.10261784022070014,
-          "windows_1yr": 0.3217621981735159,
-          "windows_3yr": 0.2640918402207001
-        }
-      },
-      "disk_prices": {
-        "premium-ssd": {
-          "P20": 3.603335,
-          "P15": 2.001755,
-          "P10": 0.997806,
-          "P80": 240.22817,
-          "P2": 0.065818,
-          "P30": 7.20667,
-          "P3": 0.131637,
-          "Snapshots": 0.140412,
-          "P4": 0.285213,
-          "P6": 0.515138,
-          "P60": 55.853444,
-          "P1": 0.032909,
-          "Confidential Compute Encryption": 2.9e-05,
-          "Burst Enablement": 26.959193,
-          "P70": 120.114085,
-          "P50": 27.927161,
-          "P40": 14.414217,
-          "Burst Transactions": 0.005485
-        },
-        "standard-ssd": {
-          "E40": 0.001755,
-          "E70": 0.001755,
-          "E3": 0.131637,
-          "E2": 0.065818,
-          "E15": 0.001755,
-          "E50": 0.001755,
-          "E60": 0.001755,
-          "E20": 0.001755,
-          "E1": 0.032909,
-          "E30": 0.001755,
-          "E6": 0.001755,
-          "E80": 0.001755,
-          "E4": 0.001755,
-          "E10": 0.001755,
-          "Confidential Compute Encryption": 2e-05,
-          "Snapshots": 0.140412,
-          "Disk Transactions": 0.002194
-        },
-        "standard-hdd": {
-          "S70": 0.000439,
-          "S20": 0.000439,
-          "S15": 0.000439,
-          "Snapshots": 0.046512,
-          "S60": 0.000439,
-          "S50": 0.000439,
-          "S30": 0.000439,
-          "Standard HDD Managed Disks - Confidential Compute Encryption": 1e-05,
-          "S4": 0.000439,
-          "S40": 0.000439,
-          "S10": 0.000439,
-          "Disk Transactions": 0.000548,
-          "S6": 0.000439,
-          "S80": 0.000439
         }
       }
     },
