@@ -13,7 +13,7 @@ from openpyxl.utils import get_column_letter
 if TYPE_CHECKING:
     from .output import ReservationRec, VMResult
 
-VERSION = "1.0.2"
+VERSION = "1.1.0"
 
 # ---------------------------------------------------------------------------
 # Azure Support Plan pricing (monthly USD, fixed — not region-specific)
@@ -591,7 +591,8 @@ def _build_summary_sheet(
 
     total_vcpus     = sum(r.vm.vcpus for r in powered_on)
     total_ram_gb    = sum(r.vm.ram_gb for r in powered_on)
-    total_disks     = sum(len(r.vm.effective_disks) for r in powered_on)
+    # Count the disks actually priced, so the figure matches --disk-source
+    total_disks     = sum(cnt for r in powered_on for _, cnt in r.disk_tiers)
     total_disk_mo   = sum(r.disk_monthly for r in powered_on)
     total_payg_comp = sum(r.payg_compute_monthly for r in powered_on)
     total_payg      = total_payg_comp + total_disk_mo

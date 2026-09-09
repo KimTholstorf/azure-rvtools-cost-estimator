@@ -94,6 +94,34 @@ def _resolve_columns(
 
 
 # ---------------------------------------------------------------------------
+# Unit conversion
+# ---------------------------------------------------------------------------
+
+_MIB_PER_GIB = 1024.0
+
+
+def _mib_to_gib(value) -> float:
+    """
+    Convert an RVTools MiB cell to GiB, returning 0.0 for missing/invalid/NaN.
+
+    GiB rather than decimal GB is deliberate: Azure managed-disk tiers
+    (P10 = 128, P30 = 1024, P80 = 32767) are defined by Microsoft in GiB, so
+    disk sizes must share units with the thresholds in sku_mapper.
+    """
+    if value is None:
+        return 0.0
+    try:
+        if pd.isna(value):
+            return 0.0
+        gib = float(value) / _MIB_PER_GIB
+    except (ValueError, TypeError):
+        return 0.0
+    if gib != gib or gib < 0:  # NaN or negative
+        return 0.0
+    return gib
+
+
+# ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
 
@@ -123,10 +151,19 @@ class VMRecord:
     @property
     def effective_disks(self) -> list[DiskRecord]:
         """
-        Return per-disk records from vDisk if available,
-        otherwise fall back to a single aggregate disk from vInfo provisioned_gb.
+        Per-disk records whose total matches the VM's provisioned
+        (VMDK-allocated) size from vInfo.
+
+        vDisk reports only guest-visible capacity, which understates the real
+        datastore footprint — on production exports by as much as 2.5x. Scaling
+        each disk by provisioned/guest-total keeps the per-disk breakdown that
+        Azure prices by tier while reaching the correct provisioned total.
         """
         if self.disks:
+            guest_total = sum(d.capacity_gb for d in self.disks)
+            if self.provisioned_gb > 0 and guest_total > 0:
+                factor = self.provisioned_gb / guest_total
+                return [DiskRecord(d.capacity_gb * factor) for d in self.disks]
             return self.disks
         if self.provisioned_gb > 0:
             return [DiskRecord(self.provisioned_gb)]
@@ -172,7 +209,9 @@ def _find_sheet(all_sheets: list[str], target_token: str) -> str | None:
 def _parse_vdisk(xls: pd.ExcelFile, sheet_name: str) -> dict[str, list[DiskRecord]]:
     """
     Parse the vDisk sheet and return a dict mapping VM name → list[DiskRecord].
-    Capacity in MiB → GB (÷1024).
+
+    Capacities are guest-visible (MiB → GiB); VMRecord.effective_disks scales
+    them to the VM's provisioned total.
     """
     df = xls.parse(sheet_name, header=0)
     df.columns = [str(c) for c in df.columns]
@@ -192,12 +231,7 @@ def _parse_vdisk(xls: pd.ExcelFile, sheet_name: str) -> dict[str, list[DiskRecor
         vm_name = str(row[vm_col]).strip()
         if not vm_name or vm_name.lower() == "nan":
             continue
-        try:
-            cap_mib = float(row[cap_col])
-        except (ValueError, TypeError):
-            cap_mib = 0.0
-        cap_gb = cap_mib / 1024.0
-        result.setdefault(vm_name, []).append(DiskRecord(cap_gb))
+        result.setdefault(vm_name, []).append(DiskRecord(_mib_to_gib(row[cap_col])))
 
     return result
 
@@ -226,9 +260,12 @@ def _parse_vinfo(
     dc_col  = resolved.get("Datacenter")  # optional
     cl_col  = resolved.get("Cluster")     # optional
 
-    # Optional disk columns — prefer total capacity over provisioned
-    prov_col = resolved.get("Total disk capacity MiB") or resolved.get("Provisioned MiB")
-    in_use_col = resolved.get("In Use MiB")
+    # "Provisioned MiB" is the VMDK-allocated size and the authoritative disk
+    # figure. "Total disk capacity MiB" is guest-visible only and undercounts
+    # it, so it serves as a per-row fallback rather than the preferred source.
+    prov_col      = resolved.get("Provisioned MiB")
+    total_cap_col = resolved.get("Total disk capacity MiB")
+    in_use_col    = resolved.get("In Use MiB")
 
     records: list[VMRecord] = []
 
@@ -287,21 +324,14 @@ def _parse_vinfo(
         if cluster.lower() in _INVALID_CLUSTER_VALUES:
             cluster = ""
 
-        # Provisioned disk in MiB → GB (fallback)
-        provisioned_gb = 0.0
-        if prov_col and pd.notna(row.get(prov_col)):
-            try:
-                provisioned_gb = float(str(row[prov_col])) / 1024.0
-            except (ValueError, TypeError):
-                provisioned_gb = 0.0
+        # Provisioned (VMDK-allocated) disk, MiB → GiB. Falls back to the
+        # guest-visible total only when Provisioned is missing/zero for this row.
+        provisioned_gb = _mib_to_gib(row.get(prov_col)) if prov_col else 0.0
+        if provisioned_gb <= 0 and total_cap_col:
+            provisioned_gb = _mib_to_gib(row.get(total_cap_col))
 
-        # In Use disk in MiB → GB
-        in_use_gb = 0.0
-        if in_use_col and pd.notna(row.get(in_use_col)):
-            try:
-                in_use_gb = float(str(row[in_use_col])) / 1024.0
-            except (ValueError, TypeError):
-                in_use_gb = 0.0
+        # In Use disk, MiB → GiB
+        in_use_gb = _mib_to_gib(row.get(in_use_col)) if in_use_col else 0.0
 
         # Per-disk records from vDisk sheet
         disks = vdisk_map.get(vm_name, [])

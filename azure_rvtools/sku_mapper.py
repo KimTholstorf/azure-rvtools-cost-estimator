@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 
@@ -189,3 +190,37 @@ def find_disk_tier(capacity_gb: float, disk_type: str) -> DiskTier | None:
             return tier
 
     return None  # exceeds largest tier
+
+
+def split_disk_into_tiers(capacity_gb: float, disk_type: str) -> list[DiskTier]:
+    """
+    Map a disk capacity onto one or more Azure managed-disk tiers.
+
+    Azure caps a single managed disk at the largest tier (32 TiB across all
+    three disk types), so a larger volume has to be split across several disks
+    and striped in the guest. Splitting into N equal disks mirrors that layout —
+    striping needs matching sizes — and keeps oversized disks from silently
+    pricing at zero.
+
+    Returns an empty list for non-positive capacity.
+    """
+    tiers = _DISK_TIERS.get(disk_type)
+    if tiers is None:
+        raise ValueError(
+            f"Unknown disk type '{disk_type}'. "
+            f"Valid types: {list(_DISK_TIERS.keys())}"
+        )
+
+    if capacity_gb <= 0:
+        return []
+
+    tier = find_disk_tier(capacity_gb, disk_type)
+    if tier is not None:
+        return [tier]
+
+    # Exceeds the largest tier — split evenly. count is chosen so each slice
+    # fits the largest tier, hence find_disk_tier below always matches.
+    largest = tiers[-1]
+    count = math.ceil(capacity_gb / largest.max_gb)
+    per_disk_tier = find_disk_tier(capacity_gb / count, disk_type)
+    return [per_disk_tier] * count  # type: ignore[list-item]

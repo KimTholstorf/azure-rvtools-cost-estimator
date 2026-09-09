@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "azure-rvtools"
-version = "1.0.2"
+version = "1.1.0"
 description = "Convert RVTools Excel exports into an Azure IaaS cost estimate."
 readme = "README.md"
 license = { text = "MIT" }
@@ -32,6 +32,7 @@ azure-rvtools = "azure_rvtools:main"
 
 [project.optional-dependencies]
 tools = [
+    "pytest>=9.1.1",
     "rich>=15.0.0",
 ]
 

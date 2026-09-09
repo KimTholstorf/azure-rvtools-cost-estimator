@@ -226,7 +226,8 @@ def print_summary(
     total_vcpus = sum(r.vm.vcpus for r in powered_on)
     total_ram_gb = sum(r.vm.ram_gb for r in powered_on)
 
-    total_disk_count = sum(len(r.vm.effective_disks) for r in powered_on)
+    # Count the disks actually priced, so the figure matches --disk-source
+    total_disk_count = sum(cnt for r in powered_on for _, cnt in r.disk_tiers)
     total_disk_monthly = sum(r.disk_monthly for r in powered_on)
 
     total_payg_compute = sum(r.payg_compute_monthly for r in powered_on)

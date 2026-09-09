@@ -15,9 +15,9 @@ from .output import (
 )
 from .pricing import PricingClient
 from .rvtools import VMRecord, filter_vms, list_topology, parse_rvtools
-from .sku_mapper import ALL_VM_SKUS, find_disk_tier, find_vm_sku
+from .sku_mapper import find_vm_sku, split_disk_into_tiers
 
-VERSION = "1.0.2"
+VERSION = "1.1.0"
 
 
 # ---------------------------------------------------------------------------
@@ -274,9 +274,17 @@ def main(argv: list[str] | None = None) -> int:
             disk_monthly = 0.0
 
             disk_records = vm.in_use_disks if args.disk_source == "in-use" else vm.effective_disks
+            split_notes: list[str] = []
             for disk in disk_records:
-                tier = find_disk_tier(disk.capacity_gb, args.disk_type)
-                if tier is not None:
+                # A disk larger than the biggest tier is split across several
+                # striped disks, mirroring what Azure requires.
+                tiers = split_disk_into_tiers(disk.capacity_gb, args.disk_type)
+                if len(tiers) > 1:
+                    split_notes.append(
+                        f"{disk.capacity_gb / 1024:.1f} TiB disk split across "
+                        f"{len(tiers)}× {tiers[0].tier}"
+                    )
+                for tier in tiers:
                     disk_tier_counts[tier.tier] = disk_tier_counts.get(tier.tier, 0) + 1
                     disk_monthly += client.get_disk_price(tier.tier, args.disk_type)
 
@@ -307,12 +315,22 @@ def main(argv: list[str] | None = None) -> int:
                 VMResult(
                     vm=vm,
                     sku=sku_match.sku if sku_match else None,
-                    sku_notes=sku_match.notes if sku_match else [],
+                    sku_notes=(sku_match.notes if sku_match else []) + split_notes,
                     disk_tiers=disk_tiers_sorted,
                     payg_compute_monthly=payg_compute_monthly,
                     reserved_compute_monthly=reserved_compute_monthly,
                     disk_monthly=disk_monthly,
                 )
+            )
+
+        split_count = sum(
+            1 for r in results for n in r.sku_notes if "split across" in n
+        )
+        if split_count:
+            print(
+                f"[INFO] {split_count} disk(s) exceeded the largest {args.disk_type} "
+                f"tier and were split across multiple striped disks.",
+                file=sys.stderr,
             )
 
         # --- Build recommendations (always — Reservations sheet is always populated) ---
